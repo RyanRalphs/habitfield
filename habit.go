@@ -47,32 +47,29 @@ func ProcessUserInput(userInput []string, writer io.Writer) (string, error) {
 	return "", fmt.Errorf("%s is not a habit command", userInput[0])
 }
 
-func (t *Tracker) AddHabit(name string) error {
-	habit := Habit{Name: name, LastRecordedEntry: time.Now(), Streak: 1}
-
+func (t *Tracker) AddHabit(habit Habit) (Habit, error) {
 	if err := t.db.Save(&habit); err != nil {
 		if errors.Is(err, storm.ErrAlreadyExists) {
-			return fmt.Errorf("habit already exists: %s", name)
+			return habit, fmt.Errorf("habit already exists: %s", habit.Name)
 		}
-		return fmt.Errorf("failed to save habit: %v", err)
+		return habit, fmt.Errorf("failed to save habit: %v", err)
 	}
 
-	return nil
+	return habit, nil
 }
 
-func (t *Tracker) GetHabit(name string) (Habit, error) {
-	var habit Habit
-	if err := t.db.One("Name", name, &habit); err != nil {
+func (t *Tracker) GetHabit(habit Habit) (Habit, error) {
+	if err := t.db.One("Name", habit.Name, &habit); err != nil {
 		if err == storm.ErrNotFound {
-			return habit, fmt.Errorf("habit not found: %s", name)
+			return habit, fmt.Errorf("habit not found: %s", habit.Name)
 		}
 		return habit, fmt.Errorf("failed to get habit: %v", err)
 	}
 	return habit, nil
 }
 
-func (t *Tracker) UpdateHabit(name string) (Habit, error) {
-	habit, err := t.GetHabit(name)
+func (t *Tracker) UpdateHabit(habit Habit) (Habit, error) {
+	habit, err := t.GetHabit(habit)
 	if err != nil {
 		return habit, err
 	}
@@ -82,9 +79,7 @@ func (t *Tracker) UpdateHabit(name string) (Habit, error) {
 		return habit, fmt.Errorf("habit already recorded for today")
 	}
 
-	if now.Sub(habit.LastRecordedEntry).Hours() > 24 {
-		fmt.Printf("Your streak for %s has been reset! Your previous streak was %d days - Try to beat it!\n", habit.Name, habit.Streak)
-
+	if now.Sub(habit.LastRecordedEntry).Hours() > 48 {
 		habit.Streak = 0
 	}
 
@@ -95,7 +90,6 @@ func (t *Tracker) UpdateHabit(name string) (Habit, error) {
 		return habit, fmt.Errorf("failed to update habit: %v", err)
 	}
 
-	fmt.Println("Habit updated!")
 	return habit, nil
 }
 

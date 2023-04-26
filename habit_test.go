@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
 	habit "github.com/RyanRalphs/habitfield"
 )
@@ -48,6 +49,11 @@ func TestProcessUserInput(t *testing.T) {
 
 var ht *habit.Tracker
 var dbName = "test.db"
+var testHabit = habit.Habit{
+	Name:              "test",
+	LastRecordedEntry: time.Now(),
+	Streak:            1,
+}
 
 func setupTest() func() {
 	if _, err := os.Stat(dbName); err == nil {
@@ -68,7 +74,7 @@ func setupTest() func() {
 
 func TestAddingANewHabit(t *testing.T) {
 	defer setupTest()()
-	err := ht.AddHabit("test")
+	_, err := ht.AddHabit(testHabit)
 	if err != nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
@@ -76,12 +82,12 @@ func TestAddingANewHabit(t *testing.T) {
 
 func TestRetrievingAStoredHabit(t *testing.T) {
 	defer setupTest()()
-	err := ht.AddHabit("test")
+	_, err := ht.AddHabit(testHabit)
 	if err != nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
 
-	habit, err := ht.GetHabit("test")
+	habit, err := ht.GetHabit(testHabit)
 	if err != nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
@@ -93,7 +99,13 @@ func TestRetrievingAStoredHabit(t *testing.T) {
 
 func TestRetrievingAHabitThatDoesntExist(t *testing.T) {
 	defer setupTest()()
-	_, err := ht.GetHabit("test2")
+	fakeHabit := habit.Habit{
+		Name:              "fake",
+		LastRecordedEntry: time.Now(),
+		Streak:            0,
+	}
+
+	_, err := ht.GetHabit(fakeHabit)
 	if err == nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
@@ -101,17 +113,62 @@ func TestRetrievingAHabitThatDoesntExist(t *testing.T) {
 
 func TestStreakUpdatingOfHabits(t *testing.T) {
 	defer setupTest()()
-	err := ht.AddHabit("test")
+	yesterdaysHabit := habit.Habit{
+		Name:              "test",
+		LastRecordedEntry: time.Now().AddDate(0, 0, -1),
+		Streak:            1,
+	}
+	addedHabit, err := ht.AddHabit(yesterdaysHabit)
 	if err != nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
 
-	testHabit, err := ht.UpdateHabit("test")
+	updatedHabit, err := ht.UpdateHabit(addedHabit)
+	if err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	if updatedHabit.Streak != 2 {
+		t.Errorf("got %v, want %v", updatedHabit.Streak, 2)
+	}
+}
+
+func TestStreakDoesntIncrementIfAddedTwiceOnSameDay(t *testing.T) {
+	defer setupTest()()
+	addedHabit, err := ht.AddHabit(testHabit)
+	if err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	updatedHabit, err := ht.UpdateHabit(addedHabit)
 	if err == nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
 
-	if testHabit.Streak != 1 {
-		t.Errorf("got %v, want %v", testHabit.Streak, 1)
+	if updatedHabit.Streak != 1 {
+		t.Errorf("got %v, want %v", updatedHabit.Streak, 1)
+	}
+}
+
+func TestStreakResetsIfNotAddedDaily(t *testing.T) {
+	defer setupTest()()
+	lastWeeksHabit := habit.Habit{
+		Name:              "test",
+		LastRecordedEntry: time.Now().AddDate(0, 0, -7),
+		Streak:            7,
+	}
+
+	_, err := ht.AddHabit(lastWeeksHabit)
+	if err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	updatedHabit, err := ht.UpdateHabit(testHabit)
+	if err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	if updatedHabit.Streak != 1 {
+		t.Errorf("got %v, want %v", updatedHabit.Streak, 1)
 	}
 }

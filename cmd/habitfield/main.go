@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	habit "github.com/RyanRalphs/habitfield"
 	"log"
 	"os"
+	"time"
+
+	habit "github.com/RyanRalphs/habitfield"
 )
 
 func main() {
@@ -15,6 +17,8 @@ func main() {
 		log.Fatal("Exiting Program. Please try again after reading the above help message!")
 	}
 	input, err := habit.ProcessUserInput(userInput, writer)
+
+	userHabit := habit.Habit{Name: input, LastRecordedEntry: time.Now(), Streak: 1}
 
 	if err != nil {
 		log.Fatal(err)
@@ -28,10 +32,12 @@ func main() {
 
 	tracker := habit.NewTracker(db)
 
-	record, err := tracker.GetHabit(input)
+	record, err := tracker.GetHabit(userHabit)
 
 	if err != nil {
-		err = tracker.AddHabit(input)
+		fmt.Printf("Habit %s does not exist. Creating habit...\n", userHabit.Name)
+		record, err = tracker.AddHabit(userHabit)
+		fmt.Printf("%+v", record)
 		os.Exit(0)
 	}
 
@@ -39,7 +45,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	record, err = tracker.UpdateHabit(record.Name)
+	record, err = tracker.UpdateHabit(record)
 
 	if err != nil {
 		fmt.Println(err)
