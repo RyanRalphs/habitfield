@@ -3,10 +3,12 @@ package habitfield
 import (
 	"errors"
 	"fmt"
-	"github.com/asdine/storm/v3"
 	"io"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/asdine/storm/v3"
 )
 
 type Tracker struct {
@@ -31,6 +33,11 @@ func ProcessUserInput(userInput []string, writer io.Writer) (string, error) {
 				PrintHelp(writer)
 				return "", fmt.Errorf("Hope this is helpful!")
 			}
+
+			if userInput[1] == "list" {
+				ListHabits()
+				return "", fmt.Errorf("Your habits are listed above")
+			}
 			habit := strings.Join(userInput[1:], " ")
 			return habit, nil
 
@@ -50,7 +57,6 @@ func (t *Tracker) AddHabit(name string) error {
 		return fmt.Errorf("failed to save habit: %v", err)
 	}
 
-	fmt.Println("Habit added!")
 	return nil
 }
 
@@ -76,10 +82,16 @@ func (t *Tracker) UpdateHabit(name string) (Habit, error) {
 		return habit, fmt.Errorf("habit already recorded for today")
 	}
 
+	if now.Sub(habit.LastRecordedEntry).Hours() > 24 {
+		fmt.Printf("Your streak for %s has been reset! Your previous streak was %d days - Try to beat it!\n", habit.Name, habit.Streak)
+
+		habit.Streak = 0
+	}
+
 	habit.LastRecordedEntry = now
 	habit.Streak++
 
-	if err := t.db.Update(habit); err != nil {
+	if err := t.db.Update(&habit); err != nil {
 		return habit, fmt.Errorf("failed to update habit: %v", err)
 	}
 
@@ -100,10 +112,19 @@ func (t *Tracker) ListHabits(writer io.Writer) error {
 
 	fmt.Fprintln(writer, "Habit streaks:")
 	for _, habit := range habits {
-		fmt.Fprintf(writer, "%s: %d\n", habit.Name, habit.Streak)
+		fmt.Fprintf(writer, "Habit %d: '%s' | Last Recorded On: %s with a streak of %d\n", habit.ID, habit.Name, habit.LastRecordedEntry.Format("02-01-2006"), habit.Streak)
 	}
 
 	return nil
+}
+
+func ListHabits() {
+	db, err := OpenDatabase("habits")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	NewTracker(db).ListHabits(os.Stdout)
 }
 
 func (t *Tracker) Close() error {
@@ -112,9 +133,8 @@ func (t *Tracker) Close() error {
 
 func PrintHelp(writer io.Writer) {
 	fmt.Fprintf(writer, "Welcome to your personal habit tracker!!\n\n"+
-		"To add a habit, run `habitfield add <habit>`.\n"+
-		"To update a habit, run `habitfield update <habit>`.\n"+
-		"To list all habits, run `habitfield list`.\n\n")
+		"To add a habit, run `habit <habit>`.\n"+
+		"To list all habits, run `habit list`.\n\n")
 }
 
 func OpenDatabase(databaseName string) (*storm.DB, error) {
