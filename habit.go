@@ -2,6 +2,7 @@ package habitfield
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,10 @@ import (
 )
 
 type Tracker struct {
-	db *storm.DB
+	db   *storm.DB
+	add  bool
+	list bool
+	help bool
 }
 
 type Habit struct {
@@ -21,6 +25,8 @@ type Habit struct {
 	LastRecordedEntry time.Time
 	Streak            int32
 }
+
+type option func(*Tracker) error
 
 func NewTracker(db *storm.DB) *Tracker {
 	return &Tracker{db: db}
@@ -127,10 +133,101 @@ func (t *Tracker) Close() error {
 
 func PrintHelp(writer io.Writer) {
 	fmt.Fprintf(writer, "Welcome to your personal habit tracker!!\n\n"+
-		"To add a habit, run `habit <habit>`.\n"+
-		"To list all habits, run `habit list`.\n\n")
+		"To add a habit, run `-add <habitName>`.\n"+
+		"To list all habits, run `-list`.\n\n")
 }
 
 func OpenDatabase(databaseName string) (*storm.DB, error) {
 	return storm.Open(databaseName)
+}
+
+func Run() {
+	if len(os.Args) == 1 {
+		PrintHelp(os.Stdout)
+	}
+
+	db, err := OpenDatabase("habits")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+	t := NewTracker(db)
+	habit, err := t.FromArgs(os.Args[1:])
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+
+	if t.add {
+		record, err := t.GetHabit(habit)
+
+		if err != nil {
+			fmt.Printf("Adding habit: %s\n", habit.Name)
+			record, err = t.AddHabit(habit)
+			os.Exit(0)
+		}
+
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
+
+		fmt.Printf("Updating habit: %s\n", habit.Name)
+
+		_, err = t.UpdateHabit(record)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	if t.list {
+		err := t.ListHabits(os.Stdout)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
+	}
+	if t.help {
+		PrintHelp(os.Stdout)
+	}
+}
+
+func (t *Tracker) FromArgs(args []string) (Habit, error) {
+	habit := Habit{}
+	if len(args) == 0 {
+		return habit, nil
+	}
+
+	fset := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+
+	add := fset.Bool("add", false, "Add a Habit")
+
+	list := fset.Bool("list", false, "List all habits")
+
+	help := fset.Bool("help", false, "Print help")
+
+	err := fset.Parse(args)
+	if err != nil {
+		return habit, err
+	}
+	t.add = *add
+	t.list = *list
+	t.help = *help
+	args = fset.Args()
+	if len(args) < 1 {
+		return habit, nil
+	}
+
+	habit.Name = strings.Join(args, " ")
+
+	return habit, nil
+}
+
+func FromArgs(args []string) (Habit, error) {
+	db, err := OpenDatabase("habits")
+	if err != nil {
+		return Habit{}, err
+	}
+	tracker := NewTracker(db)
+	return tracker.FromArgs(args)
 }
