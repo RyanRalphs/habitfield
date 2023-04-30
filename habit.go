@@ -193,7 +193,7 @@ func Run() {
 }
 
 func (t *Tracker) FromArgs(args []string) (Habit, error) {
-	habit := Habit{}
+	habit := Habit{LastRecordedEntry: time.Now(), Streak: 1}
 	if len(args) == 0 {
 		return habit, nil
 	}
@@ -221,13 +221,4 @@ func (t *Tracker) FromArgs(args []string) (Habit, error) {
 	habit.Name = strings.Join(args, " ")
 
 	return habit, nil
-}
-
-func FromArgs(args []string) (Habit, error) {
-	db, err := OpenDatabase("habits")
-	if err != nil {
-		return Habit{}, err
-	}
-	tracker := NewTracker(db)
-	return tracker.FromArgs(args)
 }
