@@ -1,9 +1,9 @@
 package main
 
 import (
-	habit "github.com/RyanRalphs/habitfield"
+	"github.com/RyanRalphs/habitfield"
 )
 
 func main() {
-	habit.Run()
+	habitfield.Run()
 }
