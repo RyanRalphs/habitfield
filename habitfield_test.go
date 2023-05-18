@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	habit "github.com/RyanRalphs/habitfield"
+	"github.com/RyanRalphs/habitfield"
 )
 
 func TestProcessUserInput(t *testing.T) {
@@ -34,7 +34,7 @@ func TestProcessUserInput(t *testing.T) {
 	for _, test := range scenarios {
 		t.Run(test.name, func(t *testing.T) {
 			fakeOutput := &bytes.Buffer{}
-			got, err := habit.ProcessUserInput(test.input, fakeOutput)
+			got, err := habitfield.ProcessUserInput(test.input, fakeOutput)
 
 			if err != nil {
 				got = err.Error()
@@ -47,9 +47,9 @@ func TestProcessUserInput(t *testing.T) {
 	}
 }
 
-var ht *habit.Tracker
+var ht *habitfield.Tracker
 var dbName = "test.db"
-var testHabit = habit.Habit{
+var testHabit = habitfield.Habit{
 	Name:              "test",
 	LastRecordedEntry: time.Now(),
 	Streak:            1,
@@ -59,13 +59,13 @@ func setupTest() func() {
 	if _, err := os.Stat(dbName); err == nil {
 		os.Remove(dbName)
 	}
-	db, err := habit.OpenDatabase(dbName)
+	db, err := habitfield.OpenDatabase(dbName)
 
 	if err != nil {
 		panic(err)
 	}
 
-	ht = habit.NewTracker(db)
+	ht = habitfield.NewTracker(db)
 
 	return func() {
 		defer db.Close()
@@ -99,7 +99,7 @@ func TestRetrievingAStoredHabit(t *testing.T) {
 
 func TestRetrievingAHabitThatDoesntExist(t *testing.T) {
 	defer setupTest()()
-	fakeHabit := habit.Habit{
+	fakeHabit := habitfield.Habit{
 		Name:              "fake",
 		LastRecordedEntry: time.Now(),
 		Streak:            0,
@@ -113,7 +113,7 @@ func TestRetrievingAHabitThatDoesntExist(t *testing.T) {
 
 func TestStreakUpdatingOfHabits(t *testing.T) {
 	defer setupTest()()
-	yesterdaysHabit := habit.Habit{
+	yesterdaysHabit := habitfield.Habit{
 		Name:              "test",
 		LastRecordedEntry: time.Now().AddDate(0, 0, -1),
 		Streak:            1,
@@ -152,7 +152,7 @@ func TestStreakDoesntIncrementIfAddedTwiceOnSameDay(t *testing.T) {
 
 func TestStreakResetsIfNotAddedDaily(t *testing.T) {
 	defer setupTest()()
-	lastWeeksHabit := habit.Habit{
+	lastWeeksHabit := habitfield.Habit{
 		Name:              "test",
 		LastRecordedEntry: time.Now().AddDate(0, 0, -7),
 		Streak:            7,
